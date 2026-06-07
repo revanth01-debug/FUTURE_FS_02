@@ -8,6 +8,8 @@ const User = require('./models/User');
 const app = express();
 const port = process.env.PORT || 3000;
 const mongoUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/crm_db';
+console.log("Mongo URI exists:", !!process.env.MONGODB_URI);
+console.log("Mongo URI value:", process.env.MONGODB_URI ? "FOUND" : "MISSING");
 
 app.use(cors());
 app.use(express.json());
