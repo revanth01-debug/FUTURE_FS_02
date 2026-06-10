@@ -6,7 +6,8 @@
     <title>CRM Lead Manager</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
     <link rel="stylesheet" crossorigin href="/FUTURE_FS_02/assets/index-BZ_Wh_iB.css">
   </head>
   <body>
@@ -55,7 +56,7 @@
 
         async function fetchLeads() {
           try {
-            const response = await axios.get('/api/leads');
+            const response = await axios.get('https://YOUR-RENDER-URL.onrender.com/api/leads');
             setLeads(response.data);
           } catch (error) {
             console.error(error);
@@ -66,7 +67,7 @@
         async function submitLead(event) {
           event.preventDefault();
           try {
-            const { data } = await axios.post('/api/leads', form);
+            const { data } = await axios.post('https://YOUR-RENDER-URL.onrender.com/api/leads', form);
             setLeads([data, ...leads]);
             setForm(EMPTY_LEAD);
             setMessage('Lead added successfully!');

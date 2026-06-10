@@ -55,7 +55,7 @@
 
         async function fetchLeads() {
           try {
-            const response = await axios.get('/api/leads');
+            const response = await axios.get('https://YOUR-RENDER-URL.onrender.com/api/leads');
             setLeads(response.data);
           } catch (error) {
             console.error(error);
