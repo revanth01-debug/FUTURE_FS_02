@@ -13,7 +13,7 @@ console.log("Mongo URI value:", process.env.MONGODB_URI ? "FOUND" : "MISSING");
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname)));
 
 mongoose.connect(mongoUri, {
   useNewUrlParser: true,
@@ -104,7 +104,7 @@ app.post('/api/change-password', async (req, res) => {
 });
 
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(__dirname,'index.html'));
 });
 
 app.listen(port, () => {

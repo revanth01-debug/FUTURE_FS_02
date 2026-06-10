@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CRM Lead Manager</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" crossorigin href="/FUTURE_FS_02/assets/index-BZ_Wh_iB.css">
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script>
+      const { useState, useEffect } = React;
+
+      const EMPTY_LEAD = {
+        name: '',
+        company: '',
+        email: '',
+        phone: '',
+        status: 'New',
+        notes: '',
+      };
+
+      const STATUS_OPTIONS = ['New', 'Contacted', 'Converted'];
+      const STATUS_FILTERS = ['All', ...STATUS_OPTIONS];
+      const AUTH_VISITS = ['login', 'register'];
+
+      function App() {
+        const [user, setUser] = useState(() => {
+          const stored = localStorage.getItem('crmUser');
+          return stored ? JSON.parse(stored) : null;
+        });
+        const [view, setView] = useState('login');
+        const [page, setPage] = useState('dashboard');
+        const [leads, setLeads] = useState([]);
+        const [form, setForm] = useState(EMPTY_LEAD);
+        const [authForm, setAuthForm] = useState({ name: '', email: '', password: '', confirmPassword: '' });
+        const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmNewPassword: '' });
+        const [message, setMessage] = useState('');
+        const [profileMessage, setProfileMessage] = useState('');
+        const [searchTerm, setSearchTerm] = useState('');
+        const [filterStatus, setFilterStatus] = useState('All');
+
+        useEffect(() => {
+          if (user) {
+            fetchLeads();
+          }
+        }, [user]);
+
+        async function fetchLeads() {
+          try {
+            const response = await axios.get('/api/leads');
+            setLeads(response.data);
+          } catch (error) {
+            console.error(error);
+            setMessage('Unable to load leads. The backend is ready to be connected.');
+          }
+        }
+
+        async function submitLead(event) {
+          event.preventDefault();
+          try {
+            const { data } = await axios.post('/api/leads', form);
+            setLeads([data, ...leads]);
+            setForm(EMPTY_LEAD);
+            setMessage('Lead added successfully!');
+          } catch (error) {
+            console.error(error);
+            setMessage('Failed to add lead. Make sure the backend server is running.');
+          }
+        }
+
+        async function updateLead(id, update) {
+          try {
+            const leadId = id && id._id ? id._id : id;
+            const { data } = await axios.put(`/api/leads/${leadId}`, update);
+            setLeads(currentLeads =>
+              currentLeads.map(lead =>
+                lead._id === leadId || lead.id === leadId ? data : lead
+              )
+            );
+            setMessage('Lead updated successfully.');
+          } catch (error) {
+            console.error(error);
+            setMessage('Unable to update lead.');
+          }
+        }
+
+        async function deleteLead(id) {
+          try {
+            const leadId = id && typeof id === 'object' ? id._id || id.id : id;
+            if (!leadId) {
+              throw new Error('Unable to resolve lead id');
+            }
+            await axios.delete(`/api/leads/${leadId}`);
+            setLeads(currentLeads =>
+              currentLeads.filter(lead => lead._id !== leadId && lead.id !== leadId)
+            );
+            setMessage('Lead deleted successfully.');
+          } catch (error) {
+            console.error(error);
+            setMessage(error.response?.data?.message || 'Unable to delete lead.');
+          }
+        }
+
+        async function attemptAuth(route, payload) {
+          try {
+            const { data } = await axios.post(`/api/${route}`, payload);
+            const authUser = data.user || {};
+            const storedUser = {
+              name: authUser.name || payload.name || '',
+              email: authUser.email || payload.email || '',
+              role: authUser.role || 'admin',
+            };
+            localStorage.setItem('crmUser', JSON.stringify(storedUser));
+            setUser(storedUser);
+            setPage('dashboard');
+            setMessage(`${route === 'login' ? 'Welcome back' : 'Account created successfully'}!`);
+            setAuthForm({ name: '', email: '', password: '', confirmPassword: '' });
+            setProfileMessage('');
+          } catch (error) {
+            console.error(error);
+            setMessage(error.response?.data?.message || 'Unable to complete request.');
+          }
+        }
+
+        function logout() {
+          localStorage.removeItem('crmUser');
+          setUser(null);
+          setView('login');
+          setPage('dashboard');
+          setLeads([]);
+          setPasswordForm({ currentPassword: '', newPassword: '', confirmNewPassword: '' });
+          setProfileMessage('');
+          setMessage('You have been logged out.');
+        }
+
+        function renderTopBar() {
+          return React.createElement(
+            'div',
+            { className: 'topbar' },
+            React.createElement(
+              'div',
+              { className: 'brand' },
+              React.createElement(
+                'span',
+                { className: 'brand-logo' },
+                React.createElement(
+                  'svg',
+                  { width: 28, height: 28, viewBox: '0 0 24 24', fill: 'none', xmlns: 'http://www.w3.org/2000/svg' },
+                  React.createElement('path', { d: 'M12 2L4 8v8c0 4 2 4 4 4h8c2 0 4 0 4-4V8l-8-6z', fill: 'currentColor', opacity: '0.12' }),
+                  React.createElement('path', { d: 'M8 12l2 2 4-4M14 8l-2 2 2 2', stroke: 'currentColor', strokeWidth: '1.8', strokeLinecap: 'round', strokeLinejoin: 'round' })
+                )
+              ),
+              'CRM Lead Manager'
+            ),
+            user && React.createElement(
+              'div',
+              { className: 'nav-tabs' },
+              ['dashboard', 'add', 'profile'].map(tab =>
+                React.createElement(
+                  'button',
+                  {
+                    key: tab,
+                    type: 'button',
+                    className: `tab-button ${page === tab ? 'active' : ''}`,
+                    onClick: () => setPage(tab),
+                  },
+                  tab === 'add' ? 'Add lead' : tab === 'profile' ? 'Profile' : 'Dashboard'
+                )
+              )
+            ),
+            React.createElement(
+              'div',
+              { className: 'topbar-actions' },
+              user && React.createElement(
+                'button',
+                {
+                  type: 'button',
+                  className: 'profile-badge',
+                  onClick: () => setPage('profile'),
+                },
+                React.createElement('span', null, user.name || user.email)
+              ),
+              !user && React.createElement(
+                'button',
+                {
+                  type: 'button',
+                  className: view === 'login' ? 'primary' : 'secondary',
+                  onClick: () => {
+                    setView('login');
+                    setMessage('');
+                  },
+                },
+                'Login'
+              ),
+              !user && React.createElement(
+                'button',
+                {
+                  type: 'button',
+                  className: view === 'register' ? 'primary' : 'secondary',
+                  onClick: () => {
+                    setView('register');
+                    setMessage('');
+                  },
+                },
+                'Register'
+              ),
+              user && React.createElement(
+                'button',
+                { type: 'button', className: 'secondary', onClick: logout },
+                'Logout'
+              )
+            )
+          );
+        }
+
+        function renderProfilePage() {
+          return React.createElement(
+            'div',
+            { className: 'container' },
+            renderTopBar(),
+            React.createElement(
+              'section',
+              { className: 'hero' },
+              React.createElement(
+                'div',
+                null,
+                React.createElement('h1', null, 'Your profile'),
+                React.createElement(
+                  'p',
+                  null,
+                  'This page shows your registered Gmail details and lets you update your password securely.'
+                )
+              ),
+              React.createElement(
+                'div',
+                { className: 'panel' },
+                React.createElement(
+                  'div',
+                  { className: 'profile-logo' },
+                  React.createElement(
+                    'svg',
+                    { width: 56, height: 56, viewBox: '0 0 24 24', fill: 'none', xmlns: 'http://www.w3.org/2000/svg' },
+                    React.createElement('circle', { cx: '12', cy: '12', r: '10', fill: 'currentColor', opacity: '0.12' }),
+                    React.createElement('path', { d: 'M12 7.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7z', stroke: 'currentColor', strokeWidth: '1.6', fill: 'none' }),
+                    React.createElement('path', { d: 'M6.5 18.5c1.5-2 3.5-2.5 5.5-2.5s4 .5 5.5 2.5', stroke: 'currentColor', strokeWidth: '1.6', strokeLinecap: 'round', fill: 'none' })
+                  )
+                ),
+                React.createElement('h2', null, 'Profile summary'),
+                React.createElement('p', null, React.createElement('strong', null, 'Name: '), user.name),
+                React.createElement('p', null, React.createElement('strong', null, 'Email: '), user.email),
+                React.createElement(
+                  'button',
+                  {
+                    type: 'button',
+                    className: 'secondary',
+                    onClick: () => setPage('dashboard'),
+                  },
+                  'Back to dashboard'
+                )
+              )
+            ),
+            React.createElement(
+              'section',
+              { className: 'panel' },
+              React.createElement('h2', null, 'Change password'),
+              React.createElement(
+                'form',
+                {
+                  onSubmit: async event => {
+                    event.preventDefault();
+                    if (passwordForm.newPassword !== passwordForm.confirmNewPassword) {
+                      setProfileMessage('New passwords must match.');
+                      return;
+                    }
+                    try {
+                      await axios.post('/api/change-password', {
+                        email: user.email,
+                        currentPassword: passwordForm.currentPassword,
+                        newPassword: passwordForm.newPassword,
+                      });
+                      setProfileMessage('Password updated successfully.');
+                      setPasswordForm({ currentPassword: '', newPassword: '', confirmNewPassword: '' });
+                    } catch (error) {
+                      setProfileMessage(error.response?.data?.message || 'Unable to update password.');
+                    }
+                  },
+                },
+                React.createElement(
+                  'label',
+                  null,
+                  'Current password',
+                  React.createElement('input', {
+                    type: 'password',
+                    value: passwordForm.currentPassword,
+                    onChange: e => setPasswordForm({ ...passwordForm, currentPassword: e.target.value }),
+                    placeholder: 'Current password',
+                    required: true,
+                  })
+                ),
+                React.createElement(
+                  'label',
+                  null,
+                  'New password',
+                  React.createElement('input', {
+                    type: 'password',
+                    value: passwordForm.newPassword,
+                    onChange: e => setPasswordForm({ ...passwordForm, newPassword: e.target.value }),
+                    placeholder: 'New password',
+                    required: true,
+                  })
+                ),
+                React.createElement(
+                  'label',
+                  null,
+                  'Confirm new password',
+                  React.createElement('input', {
+                    type: 'password',
+                    value: passwordForm.confirmNewPassword,
+                    onChange: e => setPasswordForm({ ...passwordForm, confirmNewPassword: e.target.value }),
+                    placeholder: 'Confirm new password',
+                    required: true,
+                  })
+                ),
+                React.createElement(
+                  'button',
+                  { type: 'submit', className: 'primary' },
+                  'Save password'
+                )
+              ),
+              profileMessage && React.createElement('p', { className: 'profile-message' }, profileMessage)
+            )
+          );
+        }
+
+        function renderAddPage() {
+          return React.createElement(
+            'div',
+            { className: 'container' },
+            renderTopBar(),
+            React.createElement(
+              'section',
+              { className: 'panel', id: 'add-lead' },
+              React.createElement('h2', null, 'Quick lead capture'),
+              React.createElement(
+                'form',
+                { onSubmit: submitLead },
+                React.createElement(
+                  'label',
+                  null,
+                  'Client name',
+                  React.createElement('input', {
+                    value: form.name,
+                    onChange: e => setForm({ ...form, name: e.target.value }),
+                    placeholder: 'Ava Bailey',
+                    required: true,
+                  })
+                ),
+                React.createElement(
+                  'label',
+                  null,
+                  'Company or brand',
+                  React.createElement('input', {
+                    value: form.company,
+                    onChange: e => setForm({ ...form, company: e.target.value }),
+                    placeholder: 'BlueWave Agency',
+                    required: true,
+                  })
+                ),
+                React.createElement(
+                  'label',
+                  null,
+                  'Email address',
+                  React.createElement('input', {
+                    type: 'email',
+                    value: form.email,
+                    onChange: e => setForm({ ...form, email: e.target.value }),
+                    placeholder: 'ava@bluewave.com',
+                    required: true,
+                  })
+                ),
+                React.createElement(
+                  'label',
+                  null,
+                  'Phone number',
+                  React.createElement('input', {
+                    value: form.phone,
+                    onChange: e => setForm({ ...form, phone: e.target.value }),
+                    placeholder: '+1 555 012 453',
+                    required: true,
+                  })
+                ),
+                React.createElement(
+                  'label',
+                  null,
+                  'Lead status',
+                  React.createElement(
+                    'select',
+                    {
+                      value: form.status,
+                      onChange: e => setForm({ ...form, status: e.target.value }),
+                    },
+                    STATUS_OPTIONS.map(option =>
+                      React.createElement('option', { key: option, value: option }, option)
+                    )
+                  )
+                ),
+                React.createElement(
+                  'label',
+                  null,
+                  'Notes & follow-up plan',
+                  React.createElement('textarea', {
+                    value: form.notes,
+                    onChange: e => setForm({ ...form, notes: e.target.value }),
+                    placeholder: 'Discuss pricing and next meeting details.',
+                  })
+                ),
+                React.createElement(
+                  'div',
+                  { className: 'form-actions' },
+                  React.createElement('button', { type: 'submit', className: 'primary' }, 'Save lead'),
+                  React.createElement(
+                    'button',
+                    {
+                      type: 'button',
+                      className: 'secondary',
+                      onClick: () => setForm(EMPTY_LEAD),
+                    },
+                    'Clear'
+                  )
+                )
+              )
+            ),
+            message && React.createElement('p', { className: 'notification' }, message),
+            React.createElement(
+              'footer',
+              null,
+              'Use this page to capture new leads and keep your pipeline moving.'
+            )
+          );
+        }
+
+        function renderAuth() {
+          return React.createElement(
+            'div',
+            { className: 'container' },
+            renderTopBar(),
+            React.createElement(
+              'section',
+              { className: 'hero' },
+              React.createElement(
+                'div',
+                null,
+                React.createElement('h1', null, 'Welcome to CRM Lead Manager'),
+                React.createElement(
+                  'p',
+                  null,
+                  'Login or create an account to access your leads, update statuses, and keep follow-ups organized.'
+                )
+              ),
+              React.createElement(
+                'div',
+                { className: 'panel' },
+                React.createElement('h2', null, 'Secure access'),
+                React.createElement('p', null, 'Only registered users can manage leads. Your CRM dashboard is just a few clicks away.'),
+              )
+            ),
+            React.createElement(
+              'section',
+              { className: 'panel' },
+              React.createElement('h2', null, view === 'login' ? 'Sign in' : 'Create account'),
+              React.createElement(
+                'form',
+                {
+                  onSubmit: event => {
+                    event.preventDefault();
+                    if (!authForm.email.toLowerCase().endsWith('@gmail.com')) {
+                      setMessage('Please use your Gmail address ending with @gmail.com.');
+                      return;
+                    }
+                    if (view === 'login') {
+                      attemptAuth('login', {
+                        email: authForm.email,
+                        password: authForm.password,
+                      });
+                    } else {
+                      if (!authForm.name?.trim()) {
+                        setMessage('Please enter your full name.');
+                        return;
+                      }
+                      if (authForm.password !== authForm.confirmPassword) {
+                        setMessage('Passwords must match.');
+                        return;
+                      }
+                      attemptAuth('register', {
+                        name: authForm.name,
+                        email: authForm.email,
+                        password: authForm.password,
+                      });
+                    }
+                  },
+                },
+                view === 'register' &&
+                  React.createElement(
+                    'label',
+                    null,
+                    'Full name',
+                    React.createElement('input', {
+                      type: 'text',
+                      value: authForm.name,
+                      onChange: e => setAuthForm({ ...authForm, name: e.target.value }),
+                      placeholder: 'Jane Doe',
+                      required: true,
+                    })
+                  ),
+                React.createElement(
+                  'label',
+                  null,
+                  'Email address',
+                  React.createElement('input', {
+                    type: 'email',
+                    value: authForm.email,
+                    onChange: e => setAuthForm({ ...authForm, email: e.target.value }),
+                    placeholder: 'example@gmail.com',
+                    required: true,
+                  })
+                ),
+                React.createElement(
+                  'label',
+                  null,
+                  'Password',
+                  React.createElement('input', {
+                    type: 'password',
+                    value: authForm.password,
+                    onChange: e => setAuthForm({ ...authForm, password: e.target.value }),
+                    placeholder: 'Strong password',
+                    required: true,
+                  })
+                ),
+                view === 'register' &&
+                  React.createElement(
+                    'label',
+                    null,
+                    'Confirm password',
+                    React.createElement('input', {
+                      type: 'password',
+                      value: authForm.confirmPassword,
+                      onChange: e => setAuthForm({ ...authForm, confirmPassword: e.target.value }),
+                      placeholder: 'Confirm password',
+                      required: true,
+                    })
+                  ),
+                view === 'register' &&
+                  React.createElement(
+                    'p',
+                    { style: { color: '#a4b8d3', marginTop: '0', fontSize: '0.95rem' } },
+                    'Password must be at least 8 characters and include one number and one special character.'
+                  ),
+                React.createElement(
+                  'div',
+                  { className: 'form-actions' },
+                  React.createElement('button', { type: 'submit', className: 'primary' }, view === 'login' ? 'Login' : 'Register')
+                )
+              ),
+              message && React.createElement('p', { className: 'notification' }, message)
+            ),
+            React.createElement(
+              'footer',
+              null,
+              'Create a new account using your Gmail and a secure password.'
+            )
+          );
+        }
+
+        if (!user) {
+          return renderAuth();
+        }
+
+        if (page === 'profile') {
+          return renderProfilePage();
+        }
+
+        if (page === 'add') {
+          return renderAddPage();
+        }
+
+        const displayedLeads = leads.filter(lead => {
+          const query = searchTerm.trim().toLowerCase();
+          const matchesStatus = filterStatus === 'All' || lead.status === filterStatus;
+          const matchesSearch =
+            !query ||
+            [lead.name, lead.company, lead.email, lead.phone, lead.notes || '']
+              .join(' ')
+              .toLowerCase()
+              .includes(query);
+          return matchesStatus && matchesSearch;
+        });
+
+        const counts = {
+          New: leads.filter(lead => lead.status === 'New').length,
+          Contacted: leads.filter(lead => lead.status === 'Contacted').length,
+          Converted: leads.filter(lead => lead.status === 'Converted').length,
+        };
+
+        return React.createElement(
+          'div',
+          { className: 'container' },
+          renderTopBar(),
+          React.createElement(
+            'section',
+            { className: 'hero' },
+            React.createElement(
+              'div',
+              null,
+              React.createElement('h1', null, `Welcome back, ${user?.name || user?.email}`),
+              React.createElement(
+                'p',
+                null,
+                'Manage your leads, update statuses, and keep follow-up notes all in one place.'
+              ),
+              React.createElement(
+                'div',
+                { className: 'status-card' },
+                ['New', 'Contacted', 'Converted'].map(status =>
+                  React.createElement(
+                    'div',
+                    { key: status, className: 'stat' },
+                    React.createElement('h3', null, status),
+                    React.createElement('p', null, counts[status])
+                  )
+                )
+              ),
+              React.createElement(
+                'div',
+                { className: 'filter-toolbar' },
+                React.createElement('input', {
+                  className: 'search-field',
+                  type: 'search',
+                  placeholder: 'Search leads, companies, or notes',
+                  value: searchTerm,
+                  onChange: e => setSearchTerm(e.target.value),
+                }),
+                React.createElement(
+                  'div',
+                  { className: 'status-filters' },
+                  STATUS_FILTERS.map(status =>
+                    React.createElement(
+                      'button',
+                      {
+                        key: status,
+                        type: 'button',
+                        className: `filter-button ${filterStatus === status ? 'active' : ''}`,
+                        onClick: () => setFilterStatus(status),
+                      },
+                      status
+                    )
+                  )
+                )
+              )
+            ),
+            React.createElement(
+              'section',
+              { className: 'lead-grid' },
+              displayedLeads.length > 0
+                ? displayedLeads.map(lead =>
+                    React.createElement(
+                      'article',
+                      { key: lead._id || lead.id || lead.email + lead.phone, className: 'card' },
+                      React.createElement(
+                        'div',
+                        { style: { display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center' } },
+                        React.createElement('h2', null, lead.name),
+                        React.createElement('span', { className: `badge ${lead.status}` }, lead.status)
+                      ),
+                      React.createElement('p', null, lead.company),
+                      React.createElement('p', null, React.createElement('small', null, lead.email)),
+                      React.createElement('p', null, React.createElement('small', null, lead.phone)),
+                      React.createElement('p', null, lead.notes || 'No follow-up notes yet.'),
+                      React.createElement('div', { className: 'form-actions' },
+                        React.createElement(
+                          'select',
+                          {
+                            value: lead.status,
+                            onChange: e => updateLead(lead._id || lead.id, { status: e.target.value }),
+                          },
+                          STATUS_OPTIONS.map(opt =>
+                            React.createElement('option', { key: opt, value: opt }, opt)
+                          )
+                        ),
+                        React.createElement(
+                          'button',
+                          {
+                            type: 'button',
+                            className: 'secondary',
+                            onClick: () => {
+                              const note = prompt('Update notes for this lead:', lead.notes || '');
+                              if (note !== null) {
+                                updateLead(lead._id || lead.id, { notes: note });
+                              }
+                            },
+                          },
+                          'Update notes'
+                        ),
+                        React.createElement(
+                          'button',
+                          {
+                            type: 'button',
+                            className: 'danger',
+                            onClick: () => {
+                              if (window.confirm('Delete this lead?')) {
+                                deleteLead(lead._id || lead.id);
+                              }
+                            },
+                          },
+                          'Delete'
+                        )
+                      )
+                    )
+                  )
+                : React.createElement(
+                    'div',
+                    { className: 'card' },
+                    React.createElement('h2', null, leads.length ? 'No matching leads' : 'No leads yet'),
+                    React.createElement(
+                      'p',
+                      null,
+                      leads.length
+                        ? 'Adjust your search or filter to find leads.'
+                        : 'Start by adding a client lead from the Add Lead tab.'
+                    )
+                  )
+            ),
+            React.createElement(
+              'footer',
+              null,
+              'Organize leads, track status, and convert more customers with your CRM dashboard.'
+            )
+          ));
+      }
+
+      ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+    </script>
+  </body>
+</html>
